@@ -2,6 +2,11 @@ GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 FAQ_BIN = faq-$(GOOS)-$(GOARCH)
 
+# jq (libjq) location for CGO include and link (override with make JQ_PREFIX=/path)
+JQ_PREFIX ?= /opt/homebrew/opt/jq
+CGO_CFLAGS = -I$(JQ_PREFIX)/include
+CGO_LDFLAGS = -L$(JQ_PREFIX)/lib -L/opt/homebrew/lib
+
 ifeq ($(GOOS), linux)
 INSTALL=install
 else
@@ -18,7 +23,7 @@ FAQ_VERSION=$(shell git describe --always --abbrev=40 --dirty)
 GO_LD_FLAGS=-s -w -X github.com/jzelinskie/faq/internal/version.Version=$(FAQ_VERSION) -extldflags "$(GO_EXT_LD_FLAGS)"
 
 GO=go
-GO_BUILD_ARGS=-v -ldflags '$(GO_LD_FLAGS)' -tags netgo
+GO_BUILD_ARGS=-v -ldflags '$(GO_LD_FLAGS)' -tags netgo -buildvcs=false
 GO_FILES:=$(shell find . -name '*.go' -type f)
 
 prefix = /usr/local
@@ -30,7 +35,7 @@ install: $(FAQ_BIN)
 	$(INSTALL) -m 0755 $(FAQ_BIN) $(DESTDIR)$(bindir)/faq
 
 $(FAQ_BIN): $(GO_FILES)
-	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -o $(FAQ_BIN) $(GO_BUILD_ARGS) github.com/jzelinskie/faq/cmd/faq
+	CGO_ENABLED=1 CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -o $(FAQ_BIN) $(GO_BUILD_ARGS) github.com/jzelinskie/faq/cmd/faq
 
 PHONY: build
 build: $(FAQ_BIN)
